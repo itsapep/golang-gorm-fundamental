@@ -10,17 +10,37 @@ import (
 type CustomerRepository interface {
 	Create(customer *entity.Customer) error
 	Update(customer *entity.Customer, by map[string]interface{}) error
+	UpdateBy(existingCustomer *entity.Customer) error
 	Delete(customer *entity.Customer) error
 	FindById(id string) (entity.Customer, error)
 	FindFirstBy(by map[string]interface{}) (entity.Customer, error)   // where column = ? limit 1
 	FindAllBy(by map[string]interface{}) ([]entity.Customer, error)   // where column = ?
 	FindBy(by string, vals ...interface{}) ([]entity.Customer, error) // where column like ?
+	FindFirstWithPreloaded(by map[string]interface{}, preload string) (interface{}, error)
 	BaseRepositoryAggregation
 	BaseRepositoryPaging
 }
 
 type customerRepository struct {
 	db *gorm.DB
+}
+
+func (c *customerRepository) FindFirstWithPreloaded(by map[string]interface{}, preload string) (interface{}, error) {
+	var customer entity.Customer
+	result := c.db.Preload(preload).Where(by).First(&customer)
+	if err := result.Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return customer, nil
+		} else {
+			return customer, err
+		}
+	}
+	return customer, nil
+}
+
+func (c *customerRepository) UpdateBy(existingCustomer *entity.Customer) error {
+	result := c.db.Session(&gorm.Session{FullSaveAssociations: true}).Save(existingCustomer).Error
+	return result
 }
 
 // count how many rows is unique?
