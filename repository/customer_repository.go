@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"fmt"
 	"golang-gorm-fundamental/model/entity"
 
 	"gorm.io/gorm"
@@ -24,21 +25,23 @@ type customerRepository struct {
 }
 
 // count how many rows is unique?
-func (c *customerRepository) Count(groupBy string) (int64, error) {
-	var total int64
-	var result *gorm.DB
-	sqlStmt := c.db.Model(&entity.Customer{})
+func (c *customerRepository) Count(result interface{}, groupBy string) error {
+	sqlStmt := c.db.Model(&entity.Customer{}).Unscoped()
+	var res *gorm.DB
 	if groupBy == "" {
-		result = sqlStmt.Find(&total)
+		t, ok := result.(*int64)
+		if ok {
+			res = sqlStmt.Count(t)
+		} else {
+			return errors.New("must be int64")
+		}
 	} else {
-		result = sqlStmt.Select("count(*)").Group(groupBy).Find(&total)
+		res = sqlStmt.Select(fmt.Sprintf("%s,%s", groupBy, "count(*) as total")).Group(groupBy).Find(result)
 	}
-	// result := c.db.Model(&entity.Customer{}).Select("count(*)").Group(groupBy).Find(&total)
-	// result := c.db.Model(&entity.Customer{}).Unscoped().Select("count(*)").Group(groupBy).Find(&total)
-	if err := result.Error; err != nil {
-		return 0, err
+	if err := res.Error; err != nil {
+		return err
 	}
-	return total, nil
+	return nil
 }
 
 func (c *customerRepository) GroupBy(result interface{}, selectedBy string, whereBy map[string]interface{}, groupBy string) error {

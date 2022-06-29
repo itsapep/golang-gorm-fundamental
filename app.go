@@ -107,11 +107,24 @@ func main() {
 	// fmt.Println(customers)
 
 	// count
-	// customers, err := repo.Count("address")
-	// if err != nil {
-	// 	log.Println(err.Error())
-	// }
-	// fmt.Println(customers)
+	var TotalCustomerStatus []struct {
+		Name     string
+		IsStatus int
+		Total    int64
+	}
+	err := repo.Count(&TotalCustomerStatus, "")
+	if err != nil {
+		log.Println(err.Error())
+	}
+	fmt.Println(TotalCustomerStatus)
+
+	var total int64
+	err = repo.Count(&total, "is_status")
+	if err != nil {
+		log.Println(err.Error())
+	}
+	fmt.Println("Hasil total")
+	fmt.Println(total)
 
 	// group by
 	// var Result []struct {
@@ -133,10 +146,10 @@ func main() {
 	// fmt.Println(Result)
 
 	// paging
-	customerPaging, err := repo.Paging(3, 2)
-	if err != nil {
-		log.Println(err.Error())
-	}
-	fmt.Println("Hasil pagination")
-	fmt.Println(customerPaging)
+	// customerPaging, err := repo.Paging(3, 2)
+	// if err != nil {
+	// 	log.Println(err.Error())
+	// }
+	// fmt.Println("Hasil pagination")
+	// fmt.Println(customerPaging)
 }
