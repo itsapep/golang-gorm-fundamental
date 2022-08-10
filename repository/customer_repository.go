@@ -2,7 +2,9 @@ package repository
 
 import (
 	"errors"
+	"golang-gorm-fundamental/model/dto"
 	"golang-gorm-fundamental/model/entity"
+	"golang-gorm-fundamental/utils"
 
 	"gorm.io/gorm"
 )
@@ -15,8 +17,16 @@ type CustomerRepository interface {
 	FindById(id string) (entity.Customer, error)
 	FindFirstBy(by map[string]interface{}) (entity.Customer, error)   // where column = ? limit 1
 	FindAllBy(by map[string]interface{}) ([]entity.Customer, error)   // where column = ?
+	FindAll() ([]entity.Customer, error)                              // where column = ?
 	FindBy(by string, vals ...interface{}) ([]entity.Customer, error) // where column like ?
-	FindFirstWithPreloaded(by map[string]interface{}, preload string) (interface{}, error)
+	FindFirstWithPreloaded(by map[string]interface{}, preload string) (entity.Customer, error)
+	FindAllWithPreload(preload string) ([]entity.Customer, error)
+	UpdateByModel(payload *entity.Customer) error
+	DeleteAssociation(assocModel *entity.Customer, assocName string, assocDelValue interface{}) error
+	UpdateAssociation(assocModel *entity.Customer, assocName string, assocNewValue interface{}) error
+	CountAssociation(assocModel *[]entity.Customer, selection string, join string, assocName string, groupBy string) ([]dto.TotalProductEachCustomer, error)
+	SelectJoin(assocModel *[]entity.Customer, selection string, join string, where string, assocName string) ([]dto.CustomerWithNoProduct, error)
+
 	BaseRepositoryAggregation
 	BaseRepositoryPaging
 }
@@ -25,7 +35,48 @@ type customerRepository struct {
 	db *gorm.DB
 }
 
-func (c *customerRepository) FindFirstWithPreloaded(by map[string]interface{}, preload string) (interface{}, error) {
+func (c *customerRepository) SelectJoin(assocModel *[]entity.Customer, selection string, join string, where string, assocName string) ([]dto.CustomerWithNoProduct, error) {
+	var result []dto.CustomerWithNoProduct
+	err := c.db.Model(assocModel).Select(selection).Joins(join).Where(where).Find(&result).Error
+	utils.IsError(err)
+	return result, nil
+}
+
+// FindAllWithPreload implements CustomerRepository
+func (c *customerRepository) FindAllWithPreload(preload string) ([]entity.Customer, error) {
+	var customer []entity.Customer
+	err := c.db.Model(&entity.Customer{}).Preload(preload).Find(&customer).Error
+	utils.IsError(err)
+	return customer, nil
+}
+
+func (c *customerRepository) CountAssociation(assocModel *[]entity.Customer, selection string, join string, assocName string, groupBy string) ([]dto.TotalProductEachCustomer, error) {
+	var result []dto.TotalProductEachCustomer
+	err := c.db.Model(assocModel).Select(selection).Joins(join).Group(groupBy).Association(assocName).Find(&result)
+	return result, err
+}
+
+// UpdateAssociation implements CustomerRepository
+func (c *customerRepository) UpdateAssociation(assocModel *entity.Customer, assocName string, assocNewValue interface{}) error {
+	err := c.db.Model(assocModel).Association(assocName).Replace(assocNewValue)
+	utils.IsError(err)
+	return nil
+}
+
+// DeleteAssociation implements CustomerRepository
+func (c *customerRepository) DeleteAssociation(assocModel *entity.Customer, assocName string, assocDelValue interface{}) error {
+	err := c.db.Model(assocModel).Association(assocName).Delete(assocDelValue)
+	utils.IsError(err)
+	return nil
+}
+
+// UpdateByModel implements CustomerRepository
+func (c *customerRepository) UpdateByModel(payload *entity.Customer) error {
+	result := c.db.Model(&payload).Updates(payload).Error
+	return result
+}
+
+func (c *customerRepository) FindFirstWithPreloaded(by map[string]interface{}, preload string) (entity.Customer, error) {
 	var customer entity.Customer
 	result := c.db.Preload(preload).Where(by).First(&customer)
 	if err := result.Error; err != nil {
@@ -90,6 +141,19 @@ func (c *customerRepository) Paging(page int, itemPerPage int) (interface{}, err
 func (c *customerRepository) FindFirstBy(by map[string]interface{}) (entity.Customer, error) {
 	var customer entity.Customer
 	result := c.db.Where(by).First(&customer)
+	if err := result.Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return customer, nil
+		} else {
+			return customer, err
+		}
+	}
+	return customer, nil
+}
+
+func (c *customerRepository) FindAll() ([]entity.Customer, error) {
+	var customer []entity.Customer
+	result := c.db.Find(&customer)
 	if err := result.Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return customer, nil

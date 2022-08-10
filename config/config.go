@@ -43,7 +43,12 @@ func (c *Config) initDb() {
 	} else if env == "migration" {
 		c.db = db.Debug()
 		// create table automatically from our predefined struct
-		err := c.db.AutoMigrate(&entity.Customer{}, &entity.UserCredential{})
+		err := c.db.AutoMigrate(
+			&entity.Customer{},
+			&entity.UserCredential{},
+			&entity.Address{},
+			&entity.Product{},
+		)
 		utils.IsError(err)
 		// better if we create db_migration.go under `repository` or `utils` for doing this operation specifically
 	} else {
